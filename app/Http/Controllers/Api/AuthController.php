@@ -7,58 +7,40 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use App\Mail\WelcomeMail;
+use App\Mail\MailBienvenido;
 use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
-
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6',
+            'password' => 'required|string|min:6'
         ]);
 
-        if ($validator->fails()){
-            return response()->json([
-                'message' => 'Error de validación',
-                'errors' => $validator->errors()
-            ], 422);
+        if ($validator->fails()) {
+            return $this->sendError('Error de validación', $validator->errors(), 422);
         }
+
+        $passwordPlana = $request->password;
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->password), 
+            'password' => Hash::make($passwordPlana),
         ]);
+
+        Mail::to($user->email)->send(new MailBienvenido($user, $passwordPlana));
 
         $token = $user->createToken('mundial_token')->plainTextToken;
 
-        return response()->json([
-            'success' => true,
-            'mensaje' => 'Usuario registrado correctamente',
+        return $this->sendResponse([
             'user' => $user,
             'token' => $token
-        ], 201); // 201 = Created
-
-        $passwordPlana = $request->password; // Guardamos la contraseña antes de encriptarla
-
-    $user = User::create([
-        'name' => $request->name,
-        'email' => $request->email,
-        'password' => Hash::make($passwordPlana), 
-    ]);
-
-    // Enviar el correo
-    Mail::to($user->email)->send(new WelcomeMail($user, $request->password));
-
-    $token = $user->createToken('mundial_token')->plainTextToken;
-
-    return $this->sendResponse(['user' => $user, 'token' => $token], 'Usuario registrado correctamente', 201);
+        ], 'Usuario registrado correctamente', 201);
     }
-
     public function login(Request $request)
     {
         $request->validate([
