@@ -94,4 +94,35 @@ class PartidoController extends Controller
             'partido' => $partido
         ], 200);
     }
+
+    public function importar(Request $request)
+    {
+        if (!$request->user()->is_admin) {
+            return $this->sendError('Acceso denegado', ['No eres administrador'], 403);
+        }
+
+        $request->validate([
+            'fichero' => 'required|file|mimetypes:application/json'
+        ]);
+
+        $contenido = file_get_contents($request->file('fichero')->getRealPath());
+        $partidos = json_decode($contenido, true);
+
+        if (!$partidos) {
+            return $this->sendError('Formato inválido', ['El fichero no es un JSON válido'], 400);
+        }
+
+        $insertados = [];
+        foreach ($partidos as $p) {
+            $insertados[] = Partido::create([
+                'equipo_local' => $p['equipo_local'],
+                'equipo_visitante' => $p['equipo_visitante'],
+                'fecha_partido' => $p['fecha_partido'],
+                'fase' => $p['fase'],
+                'estado' => 'pendiente'
+            ]);
+        }
+
+        return $this->sendResponse($insertados, count($insertados) . ' partidos importados correctamente', 201);
+    }
 }

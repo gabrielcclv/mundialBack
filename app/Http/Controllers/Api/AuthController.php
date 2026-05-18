@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use App\Mail\WelcomeMail;
+use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
@@ -26,7 +28,6 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Crear el usuario
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -41,6 +42,21 @@ class AuthController extends Controller
             'user' => $user,
             'token' => $token
         ], 201); // 201 = Created
+
+        $passwordPlana = $request->password; // Guardamos la contraseña antes de encriptarla
+
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'password' => Hash::make($passwordPlana), 
+    ]);
+
+    // Enviar el correo
+    Mail::to($user->email)->send(new WelcomeMail($user, $passwordPlana));
+
+    $token = $user->createToken('mundial_token')->plainTextToken;
+
+    return $this->sendResponse(['user' => $user, 'token' => $token], 'Usuario registrado correctamente', 201);
     }
 
     public function login(Request $request)

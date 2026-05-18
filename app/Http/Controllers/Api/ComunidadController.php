@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Comunidad;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ComunidadController extends Controller
 {
@@ -14,7 +15,10 @@ class ComunidadController extends Controller
     {
         $request->validate([
             'nombre' => 'required|string|max:255|unique:comunidades,nombre',
-        ]);
+            Rule::unique('comunidades')->where(function ($query) use ($request) {
+                return $query->where('user_id', $request->user()->id);
+            })
+            ]);
 
         $comunidad = Comunidad::create([
             'nombre' => $request->nombre,
@@ -72,6 +76,19 @@ class ComunidadController extends Controller
         ]);
 
         return response()->json(['success' => true, 'mensaje' => 'Estado del usuario actualizado a ' . $request->status], 200);
+    }
+
+    public function eliminarMiembro(Request $request, $comunidad_id, $user_id)
+    {
+        $comunidad = Comunidad::findOrFail($comunidad_id);
+
+        if ($comunidad->user_id !== $request->user()->id) {
+            return $this->sendError('No tienes permisos', ['Solo el creador puede eliminar miembros.'], 403);
+        }
+
+        $comunidad->miembros()->detach($user_id);
+
+        return $this->sendResponse(null, 'Miembro eliminado correctamente', 200);
     }
 
 public function ranking(Request $request, $id)
